@@ -3,6 +3,9 @@ class_name Delaunator
 const EPSILON = pow(2, -52)
 var EDGE_STACK = []
 
+# original points. We only store them, we don't do anything with this member
+var points := PackedVector2Array()
+# processed points, converted to format required for algorithm
 var coords := PackedFloat32Array()
 var halfedges := PackedInt32Array()
 var hull := [] # This array should be a PackedInt32Array but we need to use the .slice() function on it.
@@ -23,6 +26,7 @@ var _triangles := []  # This array should be a PackedInt32Array but we need to u
 
 
 func _init(points: PackedVector2Array) -> void:
+	self.points = points
 	if points.size() < 3:
 		push_error(ProjectSettings.get_setting("application/config/name") + " needs at least 3 points.")
 		return
