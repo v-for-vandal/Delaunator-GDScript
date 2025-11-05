@@ -10,29 +10,6 @@ var points := PackedVector2Array([
 
 @onready var delaunay := Delaunator.new(points)
 @onready var voronoi := Voronoinator.new(delaunay)
-@onready var cells := voronoi.voronoi_cells
-
-var _cell_to_node: Dictionary[int, MapRegion] = {}
-var _highlighted : Array[int]
 
 func _ready():
-	for i in range(cells.size()):
-		var map_region : MapRegion = MapRegionScene.instantiate()
-		_cell_to_node[i] = map_region
-		add_child(map_region)
-		map_region.shape = cells[i]
-		map_region.region_selected.connect(_on_MapRegion_selected.bind(i))
-
-func _on_MapRegion_selected(id : int):
-	# Clear previous highlight
-	for idx in _highlighted:
-		print("Clear highlight from" + str(idx))
-		_cell_to_node[idx].set_highlight(false)
-	
-	_highlighted.clear()
-		
-	print ("Region #" + str(id) + " was selected.")
-	for neighbour in voronoi.neighboring_cells(id):
-		print ("Neigbour is #" + str(neighbour))
-		_cell_to_node[neighbour].set_highlight(true)
-		_highlighted.append(neighbour)
+	$VoronoiVisualization.set_voronoi(voronoi)
