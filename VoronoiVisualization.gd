@@ -4,23 +4,66 @@ const Delaunator := preload("res://addons/Delaunator-GDScript/Delaunator.gd")
 const MapRegionScene := preload("res://addons/Delaunator-GDScript/MapRegion.tscn")
 const Voronoinator := preload("res://addons/Delaunator-GDScript/Voronoinator.gd")
 
-var points := PackedVector2Array([
-	Vector2(0, 0), Vector2(1024, 0), Vector2(1024, 600), Vector2(0, 600), Vector2(29, 390), Vector2(859, 300), Vector2(65, 342), Vector2(86, 333), Vector2(962, 212), Vector2(211, 351), Vector2(3, 594), Vector2(421, 278), Vector2(608, 271), Vector2(230, 538), Vector2(870, 454), Vector2(850, 351), Vector2(583, 385), Vector2(907, 480), Vector2(749, 533), Vector2(877, 232), Vector2(720, 546), Vector2(1003, 541), Vector2(696, 594), Vector2(102, 306)
-])
+var _voronoi: Voronoinator
+var _cells: Array[PackedVector2Array]
 
-var _voronoi : Voronoinator
-var _cells : Array[PackedVector2Array]
+var _cell_to_node: Dictionary[int, MapRegion] = { }
+var _highlighted: Array[int]
+var _highlight_target: int = -1
 
-var _cell_to_node: Dictionary[int, MapRegion] = {}
-var _highlighted : Array[int]
+var _colorings: Dictionary[StringName, PackedColorArray]
 
-func set_voronoi(voronoi : Voronoinator):
+@export var highlight_color: = Color.RED
+@export var highlight_neighbour_color := Color(0.5, 0.1, 0.3)
+
+
+func _ready() -> void:
+	# User can call set_voronoi before node is ready, in this case it will
+	# not construct shapes
+	if _voronoi != null:
+		_construct()
+
+
+func set_voronoi(voronoi: Voronoinator):
 	clear()
-	
+
 	_voronoi = voronoi
 	_cells = voronoi.voronoi_cells
-	
-	_construct()
+
+	if is_node_ready():
+		# construction only works if node is ready. If node is not ready,
+		# construct() will be called first time in _ready()
+		_construct()
+
+
+func add_coloring(key: StringName, colors: PackedColorArray) -> void:
+	assert(colors.size() == _cells.size())
+	_colorings[key] = colors
+
+
+## Creates coloring scheme where color of every polygon is random
+## You can set some components of color to fixed values by providing them explicitly
+func add_random_coloring(key: StringName, color_mask: Vector3 = Vector3(-1.0, -1.0, -1.0)) -> void:
+	var colors := PackedColorArray()
+	colors.resize(_cells.size())
+	for i in range(_cells.size()):
+		var c := Color(randf(), randf(), randf())
+		for j in range(3):
+			if color_mask[j] > 0:
+				c[j] = color_mask[j]
+		colors[i] = c
+
+	_colorings[key] = colors
+
+
+func select_coloring(key: StringName) -> void:
+	if key not in _colorings:
+		push_error("Coloring %s is not found" % key)
+		return
+
+	for i in range(_cells.size()):
+		_cell_to_node[i].color = _colorings[key][i]
+
 
 func clear():
 	for child in get_children():
@@ -30,26 +73,39 @@ func clear():
 	_voronoi = null
 	_cell_to_node.clear()
 	_highlighted.clear()
-	
-	
+	_colorings.clear()
+
+
 func _construct():
 	for i in range(_cells.size()):
-		var map_region : MapRegion = MapRegionScene.instantiate()
+		var map_region: MapRegion = MapRegionScene.instantiate()
 		_cell_to_node[i] = map_region
 		add_child(map_region)
 		map_region.shape = _cells[i]
 		map_region.region_selected.connect(_on_MapRegion_selected.bind(i))
 
-func _on_MapRegion_selected(id : int):
+
+func _on_MapRegion_selected(id: int):
+	if id == _highlight_target:
+		_clear_highlight()
+		_highlight_target = -1
+	else:
+		_clear_highlight()
+		_highlight(id)
+
+
+func _clear_highlight() -> void:
 	# Clear previous highlight
 	for idx in _highlighted:
-		print("Clear highlight from" + str(idx))
 		_cell_to_node[idx].set_highlight(false)
-	
+
 	_highlighted.clear()
-		
-	print ("Region #" + str(id) + " was selected.")
+
+
+func _highlight(id: int) -> void:
+	_cell_to_node[id].set_highlight(true, highlight_color)
 	for neighbour in _voronoi.neighboring_cells(id):
-		print ("Neigbour is #" + str(neighbour))
-		_cell_to_node[neighbour].set_highlight(true)
+		_cell_to_node[neighbour].set_highlight(true, highlight_neighbour_color)
 		_highlighted.append(neighbour)
+	_highlighted.append(id)
+	_highlight_target = id
