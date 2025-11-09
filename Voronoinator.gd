@@ -14,6 +14,9 @@ var triangle_to_cells: Dictionary[int, PackedInt32Array] = { }
 ## Mapping from voronoi cell to triangles that it was built from
 var cell_to_triangles: Dictionary[int, PackedInt32Array] = { }
 
+## Simple mean calculation for polygon. Mean of all its coordinates
+var voronoi_cells_mean : PackedVector2Array
+
 
 static func next_half_edge(e: int) -> int:
 	return e - 2 if e % 3 == 2 else e + 1
@@ -139,7 +142,17 @@ func _get_voronoi_cells(forced_boundary: Rect2) -> void:
 				cell_to_triangles[voronoi_cell_idx] = PackedInt32Array(triangles)
 				for t in triangles:
 					triangle_to_cells.get_or_add(t, PackedInt32Array()).append(voronoi_cell_idx)
-
+	
+	# calculate simple mean for each voronoi polygon
+	voronoi_cells_mean.resize(voronoi_cells.size())
+	for i in range(voronoi_cells.size()):
+		var cell : PackedVector2Array = voronoi_cells[i]
+		var sum := Vector2.ZERO
+		for point in cell:
+			sum += point
+		var avg := sum / cell.size()
+		
+		voronoi_cells_mean[i] = avg
 
 ## Given an index of a cell, returns indicies of its neighbours
 func neighboring_cells(cell_id: int) -> Array[int]:
