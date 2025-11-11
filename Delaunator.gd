@@ -1,8 +1,12 @@
 class_name Delaunator
+extends RefCounted
 
 const EPSILON = pow(2, -52)
 var EDGE_STACK = []
 
+# original points. We only store them, we don't do anything with this member
+var points := PackedVector2Array()
+# processed points, converted to format required for algorithm
 var coords := PackedFloat32Array()
 var halfedges := PackedInt32Array()
 var hull := [] # This array should be a PackedInt32Array but we need to use the .slice() function on it.
@@ -19,10 +23,11 @@ var _hull_prev := PackedInt32Array()
 var _hull_start: int
 var _hull_tri := PackedInt32Array()
 var _ids := [] # PackedInt32Array, but causes errors if not an array
-var _triangles := []  # This array should be a PackedInt32Array but we need to use the .slice() function on it.
+var _triangles := [] # This array should be a PackedInt32Array but we need to use the .slice() function on it.
 
 
 func _init(points: PackedVector2Array) -> void:
+	self.points = points
 	if points.size() < 3:
 		push_error(ProjectSettings.get_setting("application/config/name") + " needs at least 3 points.")
 		return
@@ -78,10 +83,14 @@ func update() -> void:
 	for i in n:
 		var x := coords[2 * i]
 		var y := coords[2 * i + 1]
-		if x < min_x: min_x = x
-		if y < min_y: min_y = y
-		if x > max_x: max_x = x
-		if y > max_y: max_y = y
+		if x < min_x:
+			min_x = x
+		if y < min_y:
+			min_y = y
+		if x > max_x:
+			max_x = x
+		if y > max_y:
+			max_y = y
 		_ids[i] = i
 
 	var cx := (min_x + max_x) / 2
@@ -105,7 +114,8 @@ func update() -> void:
 
 	# Find the point closest to the seed.
 	for i in n:
-		if i == i0: continue
+		if i == i0:
+			continue
 		var d := dist(i0x, i0y, coords[2 * i], coords[2 * i + 1])
 		if (d < min_dist and d > 0):
 			i1 = i
@@ -117,7 +127,8 @@ func update() -> void:
 
 	# Find the third point which forms the smallest circumcircle with the first two.
 	for i in n:
-		if i == i0 or i == i1: continue
+		if i == i0 or i == i1:
+			continue
 		var r := circumradius(i0x, i0y, i1x, i1y, coords[2 * i], coords[2 * i + 1])
 		if r < min_radius:
 			i2 = i
@@ -201,7 +212,7 @@ func update() -> void:
 	_hull_hash[_hash_key(i1x, i1y)] = i1
 	_hull_hash[_hash_key(i2x, i2y)] = i2
 
-#	triangles_len = 0
+	#	triangles_len = 0
 	_add_triangle(i0, i1, i2, -1, -1, -1)
 
 	var xp := 0.0
@@ -213,13 +224,15 @@ func update() -> void:
 		var y := coords[2 * i + 1]
 
 		# Skip near-duplicate points.
-		if k > 0 and abs(x - xp) <= EPSILON and abs(y - yp) <= EPSILON: continue
+		if k > 0 and abs(x - xp) <= EPSILON and abs(y - yp) <= EPSILON:
+			continue
 
 		xp = x
 		yp = y
 
 		# Skip seed triangle points.
-		if i == i0 or i == i1 or i == i2: continue
+		if i == i0 or i == i1 or i == i2:
+			continue
 
 		# Find a visible edge on the convex hull using edge hash.
 		var start := 0
@@ -227,21 +240,24 @@ func update() -> void:
 
 		for j in _hash_size:
 			start = _hull_hash[fmod((key + j), _hash_size)]
-			if (start != -1 and start != _hull_next[start]): break
+			if (start != -1 and start != _hull_next[start]):
+				break
 
 		start = _hull_prev[start]
 		var e := start
 
 		while true:
 			var q := _hull_next[e]
-			if orient(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]): break
+			if orient(x, y, coords[2 * e], coords[2 * e + 1], coords[2 * q], coords[2 * q + 1]):
+				break
 			e = q
-			
+
 			if (e == start):
 				e = -1
 				break
 
-		if (e == -1): continue # Likely a near-duplicate point; Skip it.
+		if (e == -1):
+			continue # Likely a near-duplicate point; Skip it.
 
 		# Add the first triangle from the point.
 		var t := _add_triangle(e, i, _hull_next[e], -1, -1, _hull_tri[e])
@@ -255,7 +271,8 @@ func update() -> void:
 
 		while true:
 			var q := _hull_next[n]
-			if not orient(x, y, coords[2 * n], coords[2 * n + 1], coords[2 * q], coords[2 * q + 1]): break
+			if not orient(x, y, coords[2 * n], coords[2 * n + 1], coords[2 * q], coords[2 * q + 1]):
+				break
 			t = _add_triangle(n, i, q, _hull_tri[i], -1, _hull_tri[n])
 			_hull_tri[i] = _legalize(t + 2)
 			_hull_next[n] = n # Mark as removed.
@@ -266,7 +283,8 @@ func update() -> void:
 		if (e == start):
 			while true:
 				var q := _hull_prev[e]
-				if not orient(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]): break
+				if not orient(x, y, coords[2 * q], coords[2 * q + 1], coords[2 * e], coords[2 * e + 1]):
+					break
 				t = _add_triangle(q, i, e, -1, _hull_tri[e], _hull_tri[q])
 				_legalize(t + 2)
 				_hull_tri[q] = t
@@ -308,26 +326,27 @@ func _legalize(a: int) -> int:
 	while true:
 		var b: int = _halfedges[a]
 
-#		If the pair of triangles doesn't satisfy the Delaunay condition
-#		(p1 is inside the circumcircle of [p0, pl, pr]), flip them,
-#		then do the same check/flip recursively for the new pair of triangles
-#
-#				   pl                    pl
-#				  /||\                  /  \
-#			   al/ || \bl            al/    \a
-#				/  ||  \              /      \
-#			   /  a||b  \    flip    /___ar___\
-#			 p0\   ||   /p1   =>   p0\---bl---/p1
-#				\  ||  /              \      /
-#			   ar\ || /br             b\    /br
-#				  \||/                  \  /
-#				   pr                    pr
+		#		If the pair of triangles doesn't satisfy the Delaunay condition
+		#		(p1 is inside the circumcircle of [p0, pl, pr]), flip them,
+		#		then do the same check/flip recursively for the new pair of triangles
+		#
+		#				   pl                    pl
+		#				  /||\                  /  \
+		#			   al/ || \bl            al/    \a
+		#				/  ||  \              /      \
+		#			   /  a||b  \    flip    /___ar___\
+		#			 p0\   ||   /p1   =>   p0\---bl---/p1
+		#				\  ||  /              \      /
+		#			   ar\ || /br             b\    /br
+		#				  \||/                  \  /
+		#				   pr                    pr
 
 		var a0 := a - a % 3
 		ar = a0 + (a + 2) % 3
 
 		if b == -1: # Convex hull edge.
-			if i == 0: break
+			if i == 0:
+				break
 			i -= 1
 			a = EDGE_STACK[i]
 			continue
@@ -342,10 +361,14 @@ func _legalize(a: int) -> int:
 		var p1: int = _triangles[bl]
 
 		var illegal := in_circle(
-			coords[2 * p0], coords[2 * p0 + 1],
-			coords[2 * pr], coords[2 * pr + 1],
-			coords[2 * pl], coords[2 * pl + 1],
-			coords[2 * p1], coords[2 * p1 + 1]
+			coords[2 * p0],
+			coords[2 * p0 + 1],
+			coords[2 * pr],
+			coords[2 * pr + 1],
+			coords[2 * pl],
+			coords[2 * pl + 1],
+			coords[2 * p1],
+			coords[2 * p1 + 1],
 		)
 
 		if illegal:
@@ -363,7 +386,8 @@ func _legalize(a: int) -> int:
 						break
 
 					e = _hull_prev[e]
-					if e == _hull_start: break
+					if e == _hull_start:
+						break
 
 			_link(a, hbl)
 			_link(b, _halfedges[ar])
@@ -376,7 +400,8 @@ func _legalize(a: int) -> int:
 				EDGE_STACK[i] = br
 				i += 1
 		else:
-			if i == 0: break
+			if i == 0:
+				break
 			i -= 1
 			a = EDGE_STACK[i]
 
@@ -459,9 +484,9 @@ func in_circle(ax: float, ay: float, bx: float, by: float, cx: float, cy: float,
 	var bp := ex * ex + ey * ey
 	var cp := fx * fx + fy * fy
 
-	return dx * (ey * cp - bp * fy) -\
-		dy * (ex * cp - bp * fx) +\
-		ap * (ex * fy - ey * fx) < 0.0
+	return dx * (ey * cp - bp * fy) - \
+	dy * (ex * cp - bp * fx) + \
+	ap * (ex * fy - ey * fx) < 0.0
 
 
 func circumradius(ax: float, ay: float, bx: float, by: float, cx: float, cy: float) -> float:
@@ -545,13 +570,16 @@ func quicksort(ids: Array, dists: Array, left: int, right: int) -> void:
 		while true:
 			while true:
 				i += 1
-				if dists[ids[i]] >= temp_dist: break
+				if dists[ids[i]] >= temp_dist:
+					break
 
 			while true:
 				j -= 1
-				if dists[ids[j]] <= temp_dist: break
+				if dists[ids[j]] <= temp_dist:
+					break
 
-			if j < i: break
+			if j < i:
+				break
 			swap(ids, i, j)
 
 		ids[left + 1] = ids[j]

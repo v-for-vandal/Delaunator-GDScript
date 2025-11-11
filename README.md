@@ -58,9 +58,9 @@ var coordinates = []
 
 for i in range(0, triangles.size(), 3):
   coordinates.append([
-    points[triangles[i]],
-    points[triangles[i + 1]],
-    points[triangles[i + 2]]
+	points[triangles[i]],
+	points[triangles[i + 1]],
+	points[triangles[i + 2]]
   ])
 ```
 

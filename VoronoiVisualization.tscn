@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://blujsq2yd5ed0"]
+
+[ext_resource type="Script" uid="uid://dtuagaqsil3lp" path="res://addons/Delaunator-GDScript/VoronoiVisualization.gd" id="1_vrjl5"]
+
+[node name="VoronoiVisualization" type="Node2D"]
+script = ExtResource("1_vrjl5")
